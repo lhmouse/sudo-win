@@ -78,7 +78,7 @@ DWORD SudoEntryPoint(void *pUnknown){
 		}
 		StrTrimW(pwszFile, L" \t");
 	}
-	/* Execute it with elevated access now. */
+	/* Launch it with elevated access now. */
 	vShellExecInfo.cbSize       = sizeof(vShellExecInfo);
 	vShellExecInfo.fMask        = SEE_MASK_NOCLOSEPROCESS | SEE_MASK_UNICODE;
 	vShellExecInfo.hwnd         = NULL;
