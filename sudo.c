@@ -6,7 +6,7 @@ Use the following command to compile:
 
   gcc -std=c99 -Wall -Wextra -Werror -Wconversion -pedantic -pedantic-errors \
     sudo.c -o sudo.exe -O3 -nostdlib -lshlwapi -lshell32 -lkernel32 \
-    -Wl,--entry,entrypoint,--subsystem,windows,--strip-all
+    -Wl,--entry,@SudoEntryPoint,--subsystem,windows,--strip-all
 
 Copyright (c) 2017, LH_Mouse
 All rights reserved.
@@ -41,38 +41,42 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <windows.h>
 #include <shlwapi.h>
 
-DWORD entrypoint(void *pUnknown) __asm__("entrypoint");
+DWORD SudoEntryPoint(void *pUnknown) __asm__("@SudoEntryPoint");
 
-DWORD entrypoint(void *pUnknown){
-	static WCHAR awszBuffer[32768 + 256];
-	STARTUPINFOW vStartupInfo;
-	LPWSTR pwszCmdLine, pwszFile, pwszArgs;
-	DWORD dwWorkingDirLen;
+static STARTUPINFOW vStartupInfo;
+static LPCWSTR pwszCmdLine;
+static WCHAR awchSomeBuffer[32768 + 256];
+
+DWORD SudoEntryPoint(void *pUnknown){
+	LPWSTR pwszFile, pwszArgs;
 	SHELLEXECUTEINFOW vShellExecInfo;
-	DWORD dwProcessExitCode;
+	DWORD dwExitCode;
 	(void)pUnknown;
 
-	/* Get the `wShowWindow` parameter. */
+	/* Perform global initialization. */
 	GetStartupInfoW(&vStartupInfo);
-
 	pwszCmdLine = GetCommandLineW();
+
+	/* Obtain the command and arguments to run. */
 	pwszFile = PathGetArgsW(pwszCmdLine);
-	if(*pwszFile == 0){
-		/* Run CMD if no command is given. An elevated `cmd.exe` has
-		   its working directory set to `%SystemRoot%\System32\`, which is
-		   a bit confusing. We tell CMD to switch to our working directory
-		   upon its launch. */
-		pwszFile = L"cmd.exe";
-		pwszArgs = awszBuffer;
+	if(pwszFile[0] == 0){
+		/* Run CMD if no filename is given, passing the working directory to
+		   it. By default an elevated CMD has its working directory
+		   set to `%SystemRoot%\System32\`, which is a bit confusing.
+		   We tell CMD to switch to our working directory upon launch. */
+		pwszArgs = awchSomeBuffer;
 		CopyMemory(pwszArgs, L"/s /k pushd \"", 13 * sizeof(WCHAR));
-		dwWorkingDirLen = GetCurrentDirectoryW(32768, pwszArgs + 13);
-		CopyMemory(pwszArgs + 13 + dwWorkingDirLen, L"\"", 2 * sizeof(WCHAR));
+		dwExitCode = GetCurrentDirectoryW(32768, pwszArgs + 13);
+		CopyMemory(pwszArgs + 13 + dwExitCode, L"\"", 2 * sizeof(WCHAR));
+		pwszFile = L"CMD.EXE";
 	} else {
-		/* Disassemble the command given. */
+		/* Use the filename provided if any. */
 		pwszArgs = PathGetArgsW(pwszFile);
-		StrCpyNW(awszBuffer, pwszArgs, 32768);
-		pwszArgs = awszBuffer;
-		PathRemoveArgsW(pwszFile);
+		/* Trim the filename, leaving the arguments alone. */
+		if(pwszArgs[0] != 0){
+			pwszArgs[-1] = 0;
+		}
+		StrTrimW(pwszFile, L" \t");
 	}
 	/* Execute it with elevated access now. */
 	vShellExecInfo.cbSize       = sizeof(vShellExecInfo);
@@ -85,16 +89,16 @@ DWORD entrypoint(void *pUnknown){
 	vShellExecInfo.nShow        = vStartupInfo.wShowWindow;
 	if(!ShellExecuteExW(&vShellExecInfo)){
 		/* Return its error code in case of failure. */
-		dwProcessExitCode = GetLastError();
+		dwExitCode = GetLastError();
 	} else if(!vShellExecInfo.hProcess){
 		/* Assume success, should no process handle be returned. */
-		dwProcessExitCode = 0;
+		dwExitCode = 0;
 	} else {
 		/* Retrieve the exit code of the process created. */
 		WaitForSingleObject(vShellExecInfo.hProcess, INFINITE);
-		GetExitCodeProcess(vShellExecInfo.hProcess, &dwProcessExitCode);
+		GetExitCodeProcess(vShellExecInfo.hProcess, &dwExitCode);
 		CloseHandle(vShellExecInfo.hProcess);
 	}
 	/* Forward the exit code. */
-	ExitProcess(dwProcessExitCode);
+	ExitProcess(dwExitCode);
 }
