@@ -58,7 +58,10 @@ DWORD entrypoint(void *pUnknown){
 	pwszCmdLine = GetCommandLineW();
 	pwszFile = PathGetArgsW(pwszCmdLine);
 	if(*pwszFile == 0){
-		/* When no command is given, run CMD.EXE and set the working directory. */
+		/* Run CMD if no command is given. An elevated `cmd.exe` has
+		   its working directory set to `%SystemRoot%\System32\`, which is
+		   a bit confusing. We tell CMD to switch to our working directory
+		   upon its launch. */
 		pwszFile = L"cmd.exe";
 		pwszArgs = awszBuffer;
 		CopyMemory(pwszArgs, L"/s /k pushd \"", 13 * sizeof(WCHAR));
@@ -81,10 +84,10 @@ DWORD entrypoint(void *pUnknown){
 	vShellExecInfo.lpDirectory  = NULL;
 	vShellExecInfo.nShow        = vStartupInfo.wShowWindow;
 	if(!ShellExecuteExW(&vShellExecInfo)){
-		/* If `ShellExecuteExW()` fails, return its error code. */
+		/* Return its error code in case of failure. */
 		dwProcessExitCode = GetLastError();
 	} else if(!vShellExecInfo.hProcess){
-		/* If `ShellExecuteExW()` returns no process handle, assume success. */
+		/* Assume success, should no process handle be returned. */
 		dwProcessExitCode = 0;
 	} else {
 		/* Retrieve the exit code of the process created. */
