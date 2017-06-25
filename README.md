@@ -1,6 +1,6 @@
 # sudo-win
 
-A utility for running arbitrary command with administrator access on Windows
+A utility for running arbitrary commands with administrator access on Windows
 
 **Use the following command to compile:**
 
