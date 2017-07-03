@@ -60,9 +60,9 @@ DWORD SudoEntryPoint(void *pUnknown){
 	/* Obtain the command and arguments to run. */
 	pwszFile = PathGetArgsW(pwszCmdLine);
 	if(pwszFile[0] == 0){
-		/* Run CMD if no filename is given, passing the working directory to
-		   it. By default an elevated CMD has its working directory
-		   set to `%SystemRoot%\System32\`, which is a bit confusing.
+		/* Run CMD if no filename is given, passing the working directory
+		   to it. By default an elevated CMD has its working directory
+		   set to `%SystemRoot%\System32\`, which confuses end users.
 		   We tell CMD to switch to our working directory upon launch. */
 		pwszArgs = awchSomeBuffer;
 		CopyMemory(pwszArgs, L"/s /k pushd \"", 13 * sizeof(WCHAR));
